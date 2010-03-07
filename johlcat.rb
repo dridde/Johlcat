@@ -1,7 +1,8 @@
 # The famous @johlcat script, generated as a birthday present for @johl.
-# The script requires the following gems: twitter and lolspeak.
-# It reads all tweets tweeted in the last hour and retweets them to
-# another twitter account, but in lolspeak.
+# Extended by @dridde to retweet @plomlompom
+# The script requires the following gems: twitter, lolspeak, whatlanguage and rtranslate.
+# It reads all tweets tweeted in the last five minutes, translates them to english
+# and retweets them to another twitter account, but in lolspeak.
 # 
 # Have phun!
 #
@@ -15,6 +16,7 @@ require 'rubygems'
 gem 'twitter'
 require 'twitter'
 require 'lolspeak'
+require 'rtranslate'
 
 screen_name = 'johlcat' # the one and original, the target account
 password = '***'
@@ -24,14 +26,17 @@ $fiveminsago = Time.at(Time.now.to_i - 300) # 5 minutes ago
 httpauth = Twitter::HTTPAuth.new( screen_name, password, @options = { :ssl => true })
 client = Twitter::Base.new(httpauth)
 
-# for testing purposes...
-#puts "OH HAI ".concat(tweet.text.to_lolspeak.upcase.delete('@'))
 begin
 	client.user_timeline( :screen_name => 'retweeted_screen_name' ).reverse.each do | tweet |
-		client.update("OH HAI ".concat(tweet.text.to_lolspeak.upcase.delete('@'))) if Time.parse(tweet.created_at) > $fiveminsago
+		if Time.parse(tweet.created_at) > $fiveminsago 
+			# since rtranslate fails when encountering & and returns html-escaped strings, which we dont want...
+			translate = tweet.text.gsub("&", "und")
+			translate = RTranslate.t(translate, 'de', 'en')
+			translate = CGI.unescapeHTML(translate)
+			client.update(translate.to_lolspeak.upcase.delete('@'))
+		end
 	end
 rescue Twitter::Unavailable, Twitter::InformTwitter, OpenSSL::SSL::SSLError, Errno::ETIMEDOUT => error
 	sleep(60) # wait for 60 seconds then retry
 	retry
-end	
-
+end
